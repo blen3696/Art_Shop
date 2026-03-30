@@ -272,7 +272,3 @@ ArtShop_Frontend/src/
 └── App.tsx                      # Route definitions
 ```
 
-## License
-
-MIT
-# Art_Shop

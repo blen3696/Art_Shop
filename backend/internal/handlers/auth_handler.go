@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/artshop/backend/internal/middleware"
+	"github.com/artshop/backend/internal/models"
 	"github.com/artshop/backend/internal/services"
 	"github.com/artshop/backend/pkg/response"
 )
@@ -145,4 +146,60 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, user)
+}
+
+// UpdateProfile handles PUT /api/auth/profile (requires auth).
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+
+	var req models.UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	user, err := h.authService.UpdateProfile(userID, req)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "UPDATE_FAILED", err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, user)
+}
+
+// ChangePassword handles POST /api/auth/change-password (requires auth).
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	errs := make(map[string]string)
+	if req.CurrentPassword == "" {
+		errs["current_password"] = "Current password is required"
+	}
+	if req.NewPassword == "" {
+		errs["new_password"] = "New password is required"
+	} else if len(req.NewPassword) < 8 {
+		errs["new_password"] = "New password must be at least 8 characters"
+	}
+	if len(errs) > 0 {
+		response.ValidationError(w, errs)
+		return
+	}
+
+	if err := h.authService.ChangePassword(userID, req.CurrentPassword, req.NewPassword); err != nil {
+		response.Error(w, http.StatusBadRequest, "PASSWORD_CHANGE_FAILED", err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "Password changed successfully",
+	})
 }

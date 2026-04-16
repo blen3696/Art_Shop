@@ -62,10 +62,6 @@ func ValidateToken(tokenString string, secret string) (*Claims, error) {
 	return claims, nil
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 // generateToken creates a single signed JWT with the given parameters.
 func generateToken(
 	userID uuid.UUID,

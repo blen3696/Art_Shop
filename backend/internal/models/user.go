@@ -62,10 +62,6 @@ func (SellerProfile) TableName() string {
 	return "seller_profiles"
 }
 
-// ---------------------------------------------------------------------------
-// Request / Response DTOs
-// ---------------------------------------------------------------------------
-
 // RegisterRequest is the payload for user registration.
 type RegisterRequest struct {
 	Email    string `json:"email" validate:"required,email"`

@@ -22,8 +22,8 @@ type Config struct {
 	DBMaxIdleConns int
 
 	// JWT Authentication
-	JWTSecret            string
-	JWTExpiryHours       int
+	JWTSecret             string
+	JWTExpiryHours        int
 	JWTRefreshExpiryHours int
 
 	// Supabase
@@ -58,8 +58,8 @@ func Load() (*Config, error) {
 		DBMaxOpenConns: getEnvInt("DB_MAX_OPEN_CONNS", 25),
 		DBMaxIdleConns: getEnvInt("DB_MAX_IDLE_CONNS", 10),
 
-		JWTSecret:            getEnv("JWT_SECRET", ""),
-		JWTExpiryHours:       getEnvInt("JWT_EXPIRY_HOURS", 24),
+		JWTSecret:             getEnv("JWT_SECRET", ""),
+		JWTExpiryHours:        getEnvInt("JWT_EXPIRY_HOURS", 24),
 		JWTRefreshExpiryHours: getEnvInt("JWT_REFRESH_EXPIRY_HOURS", 168), // 7 days
 
 		SupabaseURL:        getEnv("SUPABASE_URL", ""),
@@ -101,10 +101,6 @@ func (c *Config) validate() error {
 	}
 	return nil
 }
-
-// ---------------------------------------------------------------------------
-// Helper functions
-// ---------------------------------------------------------------------------
 
 // getEnv reads an environment variable or returns a fallback default.
 func getEnv(key, fallback string) string {

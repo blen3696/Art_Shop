@@ -67,10 +67,6 @@ func (AIRecommendation) TableName() string {
 	return "ai_recommendations"
 }
 
-// ---------------------------------------------------------------------------
-// Request / Response DTOs
-// ---------------------------------------------------------------------------
-
 // NotificationListQuery holds query parameters for listing notifications.
 type NotificationListQuery struct {
 	Page    int    `json:"page"`

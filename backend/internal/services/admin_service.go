@@ -54,27 +54,22 @@ func NewAdminService(
 func (s *AdminService) GetDashboardStats() (*DashboardStats, error) {
 	stats := &DashboardStats{}
 
-	// Total users.
 	if err := s.db.Model(&models.User{}).Count(&stats.TotalUsers).Error; err != nil {
 		return nil, fmt.Errorf("admin_service: failed to count users: %w", err)
 	}
 
-	// Total sellers.
 	if err := s.db.Model(&models.User{}).Where("role = ?", "seller").Count(&stats.TotalSellers).Error; err != nil {
 		return nil, fmt.Errorf("admin_service: failed to count sellers: %w", err)
 	}
 
-	// Total products.
 	if err := s.db.Model(&models.Product{}).Count(&stats.TotalProducts).Error; err != nil {
 		return nil, fmt.Errorf("admin_service: failed to count products: %w", err)
 	}
 
-	// Total orders.
 	if err := s.db.Model(&models.Order{}).Count(&stats.TotalOrders).Error; err != nil {
 		return nil, fmt.Errorf("admin_service: failed to count orders: %w", err)
 	}
 
-	// Total revenue.
 	if err := s.db.Model(&models.Order{}).
 		Select("COALESCE(SUM(total), 0)").
 		Where("payment_status = ?", "paid").
@@ -82,7 +77,6 @@ func (s *AdminService) GetDashboardStats() (*DashboardStats, error) {
 		return nil, fmt.Errorf("admin_service: failed to get total revenue: %w", err)
 	}
 
-	// Recent orders (last 10).
 	if err := s.db.
 		Preload("Items").
 		Preload("Buyer").

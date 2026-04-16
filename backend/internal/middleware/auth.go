@@ -76,10 +76,6 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Context helpers
-// ---------------------------------------------------------------------------
-
 // GetUserIDFromContext retrieves the authenticated user's UUID from the
 // request context. Returns uuid.Nil if not present.
 func GetUserIDFromContext(ctx context.Context) uuid.UUID {
@@ -99,10 +95,6 @@ func GetUserRoleFromContext(ctx context.Context) string {
 	}
 	return role
 }
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 // extractBearerToken pulls the token string from the Authorization header.
 // Expected format: "Bearer <token>".

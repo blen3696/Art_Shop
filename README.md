@@ -1,208 +1,340 @@
-# ArtShop - Production Art E-Commerce Platform
+<p align="center">
+  <img src="frontend/src/assets/logo.png" alt="ArtShop" width="200" />
+</p>
 
-A full-stack, production-grade e-commerce platform for buying and selling art. Built with a React TypeScript frontend and a Go backend, powered by Supabase (PostgreSQL).
+<h1 align="center">ArtShop</h1>
 
-## Architecture
+<p align="center">
+  A full-stack art marketplace built with <strong>Go</strong>, <strong>React</strong>, and <strong>Supabase</strong>.<br/>
+  Buyers discover art. Sellers manage storefronts. Admins oversee the platform.
+</p>
 
-```
-ArtShop/
-├── ArtShop_Frontend/     # React 19 + TypeScript + Vite + Tailwind CSS
-├── backend/              # Go + Chi Router + GORM + Supabase
-└── README.md
-```
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.22-00ADD8?logo=go&logoColor=white" alt="Go" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind-4.1-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
+</p>
+
+---
+
+## Screenshots
+
+<!-- 
+  Add your screenshots to the frontend/src/assets/screenshots/ folder.
+  Name them: 01-home.png, 02-products.png, 03-product-detail.png, etc.
+  Then uncomment and update the images below.
+-->
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="100%">
+        <p><em>Add screenshots to <code>frontend/src/assets/screenshots/</code> and update this section.</em></p>
+        <p>Recommended screenshots: Home, Products, Product Detail, Cart, Checkout, Seller Dashboard, Admin Dashboard</p>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="frontend/src/assets/screenshots/01-home.png" alt="Home" width="800" /><br/>
+        <strong>Home</strong>
+      </td>
+      <td align="center">
+        <img src="frontend/src/assets/screenshots/02-products.png" alt="Products" width="800" /><br/>
+        <strong>Products</strong>
+      </td>
+      <!-- <td align="center">
+        <img src="frontend/src/assets/screenshots/03-product-detail.png" alt="Product Detail" width="800" /><br/>
+        <strong>Product Detail</strong>
+      </td>
+      <td align="center">
+        <img src="frontend/src/assets/screenshots/04-cart.png" alt="Cart" width="800" /><br/>
+        <strong>Cart</strong>
+      </td>
+      <td align="center">
+        <img src="frontend/src/assets/screenshots/05-checkout.png" alt="Checkout" width="800" /><br/>
+        <strong>Checkout</strong>
+      </td>
+      <td align="center">
+        <img src="frontend/src/assets/screenshots/06-seller-dashboard.png" alt="Seller Dashboard" width="800" /><br/>
+        <strong>Seller Dashboard</strong>
+      </td>
+      <td align="center">
+        <img src="frontend/src/assets/screenshots/07-admin-dashboard.png" alt="Admin Dashboard" width="800" /><br/>
+        <strong>Admin Dashboard</strong>
+      </td> -->
+    </tr>
+  </table>
+</div>
 
 ## Features
 
-### For Buyers
-- Browse and search art products with filters (category, price range, medium, sort)
-- Full-text search with fuzzy matching
-- Product reviews and ratings
-- Wishlist to save favorite pieces
-- Shopping cart with server-side persistence
-- Full checkout flow with multiple payment methods
-- Order tracking with status updates
-- AI-powered personalized recommendations
+<table>
+<tr>
+<td width="33%" valign="top">
 
-### For Sellers
-- Register as a seller from any buyer account
-- Seller dashboard with sales analytics
+### Buyers
+- Browse & search with filters
+- Product reviews & ratings
+- Wishlist & persistent cart
+- Checkout with card input
+- Order tracking
+- AI-powered recommendations
+
+</td>
+<td width="33%" valign="top">
+
+### Sellers
+- Seller dashboard & analytics
 - Product CRUD with image upload
-- AI-generated product descriptions and tag suggestions (Claude API)
-- Order management with shipping tracking
+- AI-generated descriptions & tags
+- Order management & fulfillment
 - Revenue tracking
 
-### For Admins
-- Admin dashboard with platform analytics
-- User management (roles, activation)
-- Product moderation (feature/unfeature)
-- Order oversight across all sellers
+</td>
+<td width="33%" valign="top">
+
+### Admins
+- Platform analytics dashboard
+- User management & roles
+- Product moderation
+- Order oversight
 - Monthly revenue charts
 
-### Technical Features
-- JWT authentication with refresh tokens
-- Role-based access control (buyer/seller/admin)
-- Server-side cart that syncs across devices
-- Rate limiting per IP
-- Structured logging
-- Full-text search with PostgreSQL GIN indexes
-- Optimized database queries with proper indexing
-- Multi-stage Docker build (distroless runtime)
-- CORS configuration for production
+</td>
+</tr>
+</table>
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4 |
-| State | Zustand (client), API sync (server) |
-| Routing | React Router v7 |
-| Backend | Go 1.22, Chi Router v5 |
-| ORM | GORM v1.25 |
-| Database | Supabase (PostgreSQL) |
-| Auth | JWT (access + refresh tokens) |
-| AI | Anthropic Claude API |
-| Storage | Supabase Storage |
-| Deploy | Docker, any container platform |
+|:------|:-----------|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 |
+| **State** | Zustand |
+| **Routing** | React Router v7 |
+| **Backend** | Go 1.22, Chi Router v5 |
+| **ORM** | GORM |
+| **Database** | PostgreSQL (Supabase) |
+| **Auth** | JWT with refresh tokens |
+| **AI** | Anthropic Claude API |
+| **Storage** | Supabase Storage |
+| **Deploy** | Docker (multi-stage, distroless) |
 
-## Prerequisites
+---
+
+## Architecture
+
+```
+artshop/
+├── backend/                          # Go REST API
+│   ├── cmd/api/main.go               # Entry point & route wiring
+│   ├── internal/
+│   │   ├── config/                   # Environment configuration
+│   │   ├── database/                 # Database connection
+│   │   ├── models/                   # GORM models & DTOs
+│   │   ├── repository/              # Data access layer
+│   │   ├── services/                # Business logic
+│   │   ├── handlers/                # HTTP handlers
+│   │   └── middleware/              # Auth, rate limit, logging
+│   ├── pkg/
+│   │   ├── response/                # Standardized API responses
+│   │   └── utils/                   # JWT utilities
+│   ├── migrations/                  # SQL schema & seed data
+│   ├── Dockerfile                   # Multi-stage build
+│   └── Makefile
+│
+├── frontend/                         # React SPA
+│   └── src/
+│       ├── lib/                     # API client, types, constants
+│       ├── store/                   # Zustand state management
+│       ├── components/              # Reusable UI components
+│       └── pages/                   # Route pages
+│           ├── admin/               # Admin dashboard
+│           ├── seller/              # Seller dashboard
+│           └── ...                  # Buyer-facing pages
+│
+└── README.md
+```
+
+The backend follows clean architecture: **Handlers** (HTTP) → **Services** (business logic) → **Repositories** (data access). Each layer only depends on the one below it.
+
+---
+
+## Getting Started
+
+### Prerequisites
 
 - [Node.js](https://nodejs.org/) v18+
 - [Go](https://golang.org/) v1.22+
 - [Supabase](https://supabase.com/) account (free tier works)
-- [Anthropic API key](https://console.anthropic.com/) (for AI features)
+- [Anthropic API key](https://console.anthropic.com/) (optional, for AI features)
 
-## Setup
+### 1. Database Setup
 
-### 1. Supabase Database
-
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to **SQL Editor** and run the migration:
-   ```
-   backend/migrations/001_initial_schema.sql
-   ```
-3. Go to **Settings > Database** and copy the connection string
-4. Go to **Settings > API** and copy the URL and keys
+1. Create a project at [supabase.com](https://supabase.com)
+2. Open **SQL Editor** and run `backend/migrations/001_initial_schema.sql`
+3. Optionally run `backend/migrations/002_seed_data.sql` for demo data
+4. Copy your connection string from **Settings > Database**
 
 ### 2. Backend
 
 ```bash
 cd backend
-
-# Copy env file and fill in your values
 cp .env.example .env
-
-# Edit .env with your Supabase credentials:
-# DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@db.YOUR_REF.supabase.co:5432/postgres
-# JWT_SECRET=your-secret-key
-# SUPABASE_URL=https://YOUR_REF.supabase.co
-# SUPABASE_SERVICE_KEY=your-service-key
-# ANTHROPIC_API_KEY=your-key (optional, for AI features)
-
-# Install dependencies
+# Fill in your Supabase credentials, JWT secret, and optionally Anthropic API key
 go mod tidy
-
-# Run the server
 make run
-# or: go run cmd/api/main.go
 ```
 
-The API will start at `http://localhost:8080`.
+API starts at `http://localhost:8080`
 
 ### 3. Frontend
 
 ```bash
-cd ArtShop_Frontend
-
-# Copy env file
+cd frontend
 cp .env.example .env
-# VITE_API_URL=http://localhost:8080/api  (default)
-
-# Install dependencies
 npm install
-
-# Run dev server
 npm run dev
 ```
 
-The frontend will start at `http://localhost:5173`.
+App starts at `http://localhost:5173`
 
-### 4. Default Admin Login
+### 4. Demo Credentials
 
-```
-Email: admin@artshop.com
-Password: Admin@123456
-```
+| Role | Email | Password |
+|:-----|:------|:---------|
+| Admin | `admin@artshop.com` | `Admin@123456` |
 
-Change this immediately in production.
+> Demo sellers and buyers are included in the seed data.
 
-## API Endpoints
+---
 
-### Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/register | Register new user |
-| POST | /api/auth/login | Login |
-| POST | /api/auth/refresh | Refresh tokens |
-| POST | /api/auth/register-seller | Upgrade to seller |
-| GET | /api/auth/me | Get current user |
+## API Reference
 
-### Products
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/products | List products (with filters) |
-| GET | /api/products/:id | Get product detail |
-| GET | /api/products/featured | Featured products |
-| GET | /api/products/search | Search products |
-| GET | /api/categories | List categories |
-| POST | /api/products | Create product (seller) |
-| PUT | /api/products/:id | Update product (seller) |
-| DELETE | /api/products/:id | Delete product (seller) |
+<details>
+<summary><strong>Authentication</strong></summary>
 
-### Cart & Wishlist
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/cart | Get cart items |
-| POST | /api/cart | Add to cart |
-| PUT | /api/cart/:productId | Update quantity |
-| DELETE | /api/cart/:productId | Remove item |
-| GET | /api/wishlist | Get wishlist |
-| POST | /api/wishlist | Add to wishlist |
-| DELETE | /api/wishlist/:productId | Remove from wishlist |
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `POST` | `/api/auth/register` | - | Register new user |
+| `POST` | `/api/auth/login` | - | Login |
+| `POST` | `/api/auth/refresh` | - | Refresh token pair |
+| `GET` | `/api/auth/me` | Bearer | Current user profile |
+| `PUT` | `/api/auth/profile` | Bearer | Update profile |
+| `POST` | `/api/auth/change-password` | Bearer | Change password |
+| `POST` | `/api/auth/register-seller` | Bearer | Upgrade to seller |
 
-### Orders
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/orders | Create order from cart |
-| GET | /api/orders | List user's orders |
-| GET | /api/orders/:id | Get order detail |
-| PUT | /api/orders/:id/status | Update status |
+</details>
 
-### Reviews
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/products/:id/reviews | Get product reviews |
-| POST | /api/products/:id/reviews | Create review |
-| DELETE | /api/reviews/:id | Delete review |
+<details>
+<summary><strong>Products</strong></summary>
 
-### Admin
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/admin/dashboard | Dashboard stats |
-| GET | /api/admin/users | List users |
-| PUT | /api/admin/users/:id/role | Change user role |
-| GET | /api/admin/orders | All orders |
-| GET | /api/admin/revenue | Revenue data |
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `GET` | `/api/products` | - | List with filters & pagination |
+| `GET` | `/api/products/featured` | - | Featured products |
+| `GET` | `/api/products/:id` | - | Product detail |
+| `GET` | `/api/categories` | - | All categories |
+| `POST` | `/api/products` | Seller | Create product |
+| `PUT` | `/api/products/:id` | Seller | Update product |
+| `DELETE` | `/api/products/:id` | Seller | Delete product |
 
-### AI
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/ai/generate-description | AI product description |
-| POST | /api/ai/generate-tags | AI tag suggestions |
-| GET | /api/ai/recommendations | Personalized recs |
+</details>
 
-## Production Deployment
+<details>
+<summary><strong>Cart & Wishlist</strong></summary>
 
-### Docker
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `GET` | `/api/cart` | Bearer | Get cart |
+| `POST` | `/api/cart` | Bearer | Add item |
+| `PUT` | `/api/cart/:productId` | Bearer | Update quantity |
+| `DELETE` | `/api/cart/:productId` | Bearer | Remove item |
+| `DELETE` | `/api/cart` | Bearer | Clear cart |
+| `GET` | `/api/wishlist` | Bearer | Get wishlist |
+| `POST` | `/api/wishlist` | Bearer | Add to wishlist |
+| `DELETE` | `/api/wishlist/:productId` | Bearer | Remove from wishlist |
+
+</details>
+
+<details>
+<summary><strong>Orders</strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `POST` | `/api/orders` | Bearer | Create order from cart |
+| `GET` | `/api/orders` | Bearer | User's orders |
+| `GET` | `/api/orders/:id` | Bearer | Order detail |
+| `PUT` | `/api/orders/:id/status` | Bearer | Update status |
+| `GET` | `/api/seller/orders` | Seller | Seller's orders |
+
+</details>
+
+<details>
+<summary><strong>Reviews</strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `GET` | `/api/products/:id/reviews` | - | Product reviews |
+| `POST` | `/api/products/:id/reviews` | Bearer | Create review |
+| `DELETE` | `/api/reviews/:id` | Bearer | Delete review |
+
+</details>
+
+<details>
+<summary><strong>Admin</strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `GET` | `/api/admin/dashboard` | Admin | Dashboard stats |
+| `GET` | `/api/admin/users` | Admin | List users |
+| `PUT` | `/api/admin/users/:id/role` | Admin | Change role |
+| `PUT` | `/api/admin/users/:id/toggle-active` | Admin | Toggle active |
+| `GET` | `/api/admin/orders` | Admin | All orders |
+| `PUT` | `/api/admin/products/:id/toggle-featured` | Admin | Toggle featured |
+| `GET` | `/api/admin/revenue` | Admin | Revenue data |
+
+</details>
+
+<details>
+<summary><strong>AI</strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `POST` | `/api/ai/generate-description` | Seller | AI product description |
+| `POST` | `/api/ai/generate-tags` | Seller | AI tag suggestions |
+| `GET` | `/api/ai/recommendations` | Bearer | Personalized recommendations |
+
+</details>
+
+<details>
+<summary><strong>Other</strong></summary>
+
+| Method | Endpoint | Auth | Description |
+|:-------|:---------|:-----|:------------|
+| `POST` | `/api/upload` | Bearer | Upload image |
+| `GET` | `/api/notifications` | Bearer | List notifications |
+| `GET` | `/api/notifications/unread-count` | Bearer | Unread count |
+| `PUT` | `/api/notifications/:id/read` | Bearer | Mark read |
+| `PUT` | `/api/notifications/read-all` | Bearer | Mark all read |
+
+</details>
+
+---
+
+## Deployment
+
+### Docker (Backend)
 
 ```bash
 cd backend
@@ -210,69 +342,16 @@ docker build -t artshop-api .
 docker run --env-file .env -p 8080:8080 artshop-api
 ```
 
-### Frontend Build
-
-```bash
-cd ArtShop_Frontend
-npm run build
-# Deploy the dist/ folder to Vercel, Netlify, or any static host
-```
-
-### Environment Variables
-
-Set `VITE_API_URL` to your production API URL before building the frontend.
-
-## Project Structure
-
-### Backend (Clean Architecture)
-
-```
-backend/
-├── cmd/api/main.go              # Entry point, wiring, server
-├── internal/
-│   ├── config/                  # Environment config loader
-���   ├── database/                # GORM database connection
-│   ├── models/                  # GORM models & DTOs
-│   ├── middleware/               # Auth, CORS, rate limit, logger
-│   ├── repository/              # Data access layer
-│   ├── services/                # Business logic layer
-│   └── handlers/                # HTTP handlers (controllers)
-├── pkg/
-│   ├── response/                # Standardized API responses
-│   └── utils/                   # JWT utilities
-├── migrations/                  # SQL migration files
-├── Dockerfile                   # Multi-stage Docker build
-├── Makefile                     # Dev commands
-└── go.mod                       # Go module definition
-```
-
 ### Frontend
 
+```bash
+cd frontend
+VITE_API_URL=https://your-api-url.com/api npm run build
+# Deploy dist/ to Vercel, Netlify, or any static host
 ```
-ArtShop_Frontend/src/
-├── lib/                         # API client, types, constants
-├── store/                       # Zustand stores (auth, cart, products, wishlist, notifications)
-├── hooks/                       # Custom React hooks
-├── components/
-│   ├── ui/                      # Reusable UI components (Button, Input, Modal, etc.)
-│   ├── header/                  # Navigation header with search
-│   ├── footer/                  # Site footer
-│   ├── layout/                  # Page layout wrapper
-��   ├── search/                  # Search bar with live results
-│   ├���─ reviews/                 # Review card & form
-│   ├── ai/                      # AI recommendations component
-│   └── ...                      # Home page sections
-├── pages/
-│   ├── admin/                   # Admin dashboard (layout, users, products, orders)
-│   ├── seller/                  # Seller dashboard (layout, products, orders, add product)
-│   ├── search/                  # Search results page
-│   ├── wishlist/                # Saved products
-│   ├── settings/                # User/store settings
-│   └── ...                      # Home, Product, Cart, Checkout, Auth, Profile, Orders
-└── App.tsx                      # Route definitions
-```
+
+---
 
 ## License
 
-MIT
-# Art_Shop
+This project is licensed under the [MIT License](LICENSE).

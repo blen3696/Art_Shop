@@ -22,9 +22,6 @@ import (
 )
 
 func main() {
-	// -------------------------------------------------------------------------
-	// 1. Load configuration
-	// -------------------------------------------------------------------------
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
@@ -32,9 +29,6 @@ func main() {
 	}
 	slog.Info("configuration loaded", "env", cfg.Env, "port", cfg.Port)
 
-	// -------------------------------------------------------------------------
-	// 2. Connect to database
-	// -------------------------------------------------------------------------
 	db, err := database.InitDB(cfg)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
@@ -43,27 +37,18 @@ func main() {
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 
-	// -------------------------------------------------------------------------
-	// 3. Create repositories
-	// -------------------------------------------------------------------------
 	userRepo := repository.NewUserRepository(db)
 	productRepo := repository.NewProductRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	cartRepo := repository.NewCartRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 
-	// -------------------------------------------------------------------------
-	// 4. Create services
-	// -------------------------------------------------------------------------
 	authService := services.NewAuthService(userRepo, cfg)
 	productService := services.NewProductService(productRepo, cfg)
 	orderService := services.NewOrderService(orderRepo, cartRepo, productRepo, cfg)
 	aiService := services.NewAIService(cfg)
 	adminService := services.NewAdminService(userRepo, productRepo, orderRepo, db)
 
-	// -------------------------------------------------------------------------
-	// 5. Create handlers
-	// -------------------------------------------------------------------------
 	authHandler := handlers.NewAuthHandler(authService)
 	productHandler := handlers.NewProductHandler(productService)
 	orderHandler := handlers.NewOrderHandler(orderService)
@@ -75,9 +60,6 @@ func main() {
 	uploadHandler := handlers.NewUploadHandler(cfg)
 	notificationHandler := handlers.NewNotificationHandler(db)
 
-	// -------------------------------------------------------------------------
-	// 6. Setup chi router with global middleware
-	// -------------------------------------------------------------------------
 	r := chi.NewRouter()
 
 	// Rate limiter (with background cleanup goroutine).
@@ -104,10 +86,6 @@ func main() {
 	// Rate limiting.
 	r.Use(rateLimiter.Middleware)
 
-	// -------------------------------------------------------------------------
-	// 7. Mount all routes
-	// -------------------------------------------------------------------------
-
 	// Health check.
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -116,10 +94,6 @@ func main() {
 	})
 
 	r.Route("/api", func(r chi.Router) {
-		// =====================================================================
-		// Public routes (no authentication required)
-		// =====================================================================
-
 		// Auth.
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
@@ -131,6 +105,8 @@ func main() {
 				r.Use(middleware.RequireAuth(cfg.JWTSecret))
 				r.Post("/register-seller", authHandler.RegisterSeller)
 				r.Get("/me", authHandler.Me)
+				r.Put("/profile", authHandler.UpdateProfile)
+				r.Post("/change-password", authHandler.ChangePassword)
 			})
 		})
 
@@ -163,9 +139,6 @@ func main() {
 		// Categories (public).
 		r.Get("/categories", productHandler.Categories)
 
-		// =====================================================================
-		// Authenticated routes
-		// =====================================================================
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAuth(cfg.JWTSecret))
 
@@ -211,9 +184,7 @@ func main() {
 			r.Get("/ai/recommendations", aiHandler.Recommendations)
 		})
 
-		// =====================================================================
-		// Seller routes
-		// =====================================================================
+		// Seller routes.
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAuth(cfg.JWTSecret))
 			r.Use(middleware.RequireRole("seller", "admin"))
@@ -225,9 +196,7 @@ func main() {
 			r.Post("/ai/generate-tags", aiHandler.GenerateTags)
 		})
 
-		// =====================================================================
-		// Admin routes
-		// =====================================================================
+		// Admin routes.
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(middleware.RequireAuth(cfg.JWTSecret))
 			r.Use(middleware.RequireRole("admin"))
@@ -242,9 +211,6 @@ func main() {
 		})
 	})
 
-	// -------------------------------------------------------------------------
-	// 8. Start HTTP server with graceful shutdown
-	// -------------------------------------------------------------------------
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
@@ -253,11 +219,9 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Channel to listen for shutdown signals.
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	// Start server in a goroutine.
 	go func() {
 		slog.Info("starting server", "addr", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -266,7 +230,6 @@ func main() {
 		}
 	}()
 
-	// Wait for shutdown signal.
 	sig := <-shutdown
 	slog.Info("shutdown signal received", "signal", sig)
 

@@ -67,10 +67,6 @@ func (Product) TableName() string {
 	return "products"
 }
 
-// ---------------------------------------------------------------------------
-// Request / Response DTOs
-// ---------------------------------------------------------------------------
-
 // CreateProductRequest is the payload for creating a new product.
 type CreateProductRequest struct {
 	Title          string   `json:"title" validate:"required,min=2"`

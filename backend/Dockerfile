@@ -1,9 +1,3 @@
-# ============================================================================
-# Multi-stage Dockerfile for ArtShop API
-# Stage 1: Build the Go binary
-# Stage 2: Minimal runtime image (distroless)
-# ============================================================================
-
 # Build stage
 FROM golang:1.22-alpine AS builder
 

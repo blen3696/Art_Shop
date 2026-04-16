@@ -33,10 +33,6 @@ func (Review) TableName() string {
 	return "reviews"
 }
 
-// ---------------------------------------------------------------------------
-// Request / Response DTOs
-// ---------------------------------------------------------------------------
-
 // CreateReviewRequest is the payload for submitting a review.
 type CreateReviewRequest struct {
 	ProductID string   `json:"product_id" validate:"required,uuid"`

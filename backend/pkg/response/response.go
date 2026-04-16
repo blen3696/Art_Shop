@@ -93,10 +93,6 @@ func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 // writeJSON marshals the payload and writes it to the response writer.
 func writeJSON(w http.ResponseWriter, status int, payload APIResponse) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

@@ -234,3 +234,72 @@ func (s *AuthService) RegisterAsSeller(userID uuid.UUID, req SellerRegisterReque
 func (s *AuthService) GetUserByID(id uuid.UUID) (*models.User, error) {
 	return s.userRepo.FindByID(id)
 }
+
+// UpdateProfile updates the authenticated user's profile fields.
+func (s *AuthService) UpdateProfile(userID uuid.UUID, req models.UpdateProfileRequest) (*models.User, error) {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	if req.FullName != nil {
+		user.FullName = *req.FullName
+	}
+	if req.Phone != nil {
+		user.Phone = req.Phone
+	}
+	if req.Bio != nil {
+		user.Bio = req.Bio
+	}
+	if req.AvatarURL != nil {
+		user.AvatarURL = req.AvatarURL
+	}
+	if req.AddressLine1 != nil {
+		user.AddressLine1 = req.AddressLine1
+	}
+	if req.AddressLine2 != nil {
+		user.AddressLine2 = req.AddressLine2
+	}
+	if req.City != nil {
+		user.City = req.City
+	}
+	if req.State != nil {
+		user.State = req.State
+	}
+	if req.Country != nil {
+		user.Country = req.Country
+	}
+	if req.ZipCode != nil {
+		user.ZipCode = req.ZipCode
+	}
+
+	if err := s.userRepo.Update(user); err != nil {
+		return nil, fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	return s.userRepo.FindByID(userID)
+}
+
+// ChangePassword validates the current password and sets a new one.
+func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassword string) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return fmt.Errorf("current password is incorrect")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	user.PasswordHash = string(hash)
+	if err := s.userRepo.Update(user); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	return nil
+}

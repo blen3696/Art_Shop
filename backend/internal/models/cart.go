@@ -41,10 +41,6 @@ func (Wishlist) TableName() string {
 	return "wishlists"
 }
 
-// ---------------------------------------------------------------------------
-// Request / Response DTOs
-// ---------------------------------------------------------------------------
-
 // AddToCartRequest is the payload for adding a product to the cart.
 type AddToCartRequest struct {
 	ProductID string `json:"product_id" validate:"required,uuid"`

@@ -67,10 +67,6 @@ func (OrderItem) TableName() string {
 	return "order_items"
 }
 
-// ---------------------------------------------------------------------------
-// Request / Response DTOs
-// ---------------------------------------------------------------------------
-
 // CreateOrderRequest is the payload for placing a new order.
 type CreateOrderRequest struct {
 	ShippingName         string `json:"shipping_name" validate:"required"`

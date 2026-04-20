@@ -1,0 +1,16 @@
+# Repo-wide safety net. Sub-folders have their own .gitignore for specifics.
+
+# Environment / secrets — never commit these anywhere in the tree
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

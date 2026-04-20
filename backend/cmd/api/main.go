@@ -42,15 +42,25 @@ func main() {
 	orderRepo := repository.NewOrderRepository(db)
 	cartRepo := repository.NewCartRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
+	resetTokenRepo := repository.NewPasswordResetTokenRepository(db)
 
-	authService := services.NewAuthService(userRepo, cfg)
-	productService := services.NewProductService(productRepo, cfg)
-	orderService := services.NewOrderService(orderRepo, cartRepo, productRepo, cfg)
+	emailService := services.NewEmailService(cfg)
 	aiService := services.NewAIService(cfg)
+	productAIService := services.NewProductAIService(productRepo, reviewRepo, aiService, db)
+
+	authService := services.NewAuthService(userRepo, resetTokenRepo, emailService, cfg)
+	productService := services.NewProductService(productRepo, productAIService, cfg)
+	orderService := services.NewOrderService(orderRepo, cartRepo, productRepo, userRepo, emailService, cfg)
 	adminService := services.NewAdminService(userRepo, productRepo, orderRepo, db)
 
+	// Kick off embedding backfill in the background — embeds any product that
+	// doesn't yet have a vector, respecting Gemini's free-tier rate limits.
+	if aiService.IsEnabled() {
+		go productAIService.BackfillEmbeddings(context.Background())
+	}
+
 	authHandler := handlers.NewAuthHandler(authService)
-	productHandler := handlers.NewProductHandler(productService)
+	productHandler := handlers.NewProductHandler(productService, productAIService)
 	orderHandler := handlers.NewOrderHandler(orderService)
 	cartHandler := handlers.NewCartHandler(cartRepo)
 	reviewHandler := handlers.NewReviewHandler(reviewRepo)
@@ -99,6 +109,8 @@ func main() {
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.Login)
 			r.Post("/refresh", authHandler.RefreshToken)
+			r.Post("/forgot-password", authHandler.ForgotPassword)
+			r.Post("/reset-password", authHandler.ResetPassword)
 
 			// Auth-required auth routes.
 			r.Group(func(r chi.Router) {
@@ -116,6 +128,8 @@ func main() {
 			r.Get("/featured", productHandler.Featured)
 			r.Get("/search", productHandler.Search)
 			r.Get("/{id}", productHandler.GetByID)
+			r.Get("/{id}/similar", productHandler.Similar)
+			r.Get("/{id}/review-summary", productHandler.ReviewSummary)
 
 			// Product reviews (public read).
 			r.Get("/{id}/reviews", reviewHandler.GetByProduct)
@@ -190,6 +204,7 @@ func main() {
 			r.Use(middleware.RequireRole("seller", "admin"))
 
 			r.Get("/seller/orders", orderHandler.SellerOrders)
+			r.Get("/seller/stats", orderHandler.SellerStats)
 
 			// AI content generation.
 			r.Post("/ai/generate-description", aiHandler.GenerateDescription)

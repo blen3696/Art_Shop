@@ -22,7 +22,9 @@ func NewCartHandler(cartRepo *repository.CartRepository) *CartHandler {
 	return &CartHandler{cartRepo: cartRepo}
 }
 
-// GetCart handles GET /api/cart (requires auth).
+// GetCart handles GET /api/cart (requires auth). Returns the cart items array
+// directly so the frontend can compute totals locally — matches the typed
+// contract `CartItem[]` declared in the API client.
 func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 
@@ -31,20 +33,11 @@ func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, "FETCH_FAILED", "Failed to get cart")
 		return
 	}
-
-	// Calculate cart summary.
-	var totalItems int
-	var totalPrice float64
-	for _, item := range items {
-		totalItems += item.Quantity
-		totalPrice += item.Product.Price * float64(item.Quantity)
+	if items == nil {
+		items = []models.CartItem{}
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"items":       items,
-		"total_items": totalItems,
-		"total_price": totalPrice,
-	})
+	response.JSON(w, http.StatusOK, items)
 }
 
 // AddItem handles POST /api/cart (requires auth).

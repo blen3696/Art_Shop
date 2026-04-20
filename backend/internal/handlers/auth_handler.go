@@ -167,6 +167,66 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, user)
 }
 
+// ForgotPassword handles POST /api/auth/forgot-password (public).
+// Always returns 200 with a generic message — never reveals whether the
+// email is registered (prevents account enumeration).
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		response.ValidationError(w, map[string]string{"email": "Email is required"})
+		return
+	}
+
+	// Errors are logged inside the service; we never surface them to the client.
+	_ = h.authService.RequestPasswordReset(req.Email)
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "If that email is registered, a reset link is on its way.",
+	})
+}
+
+// ResetPassword handles POST /api/auth/reset-password (public).
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	errs := make(map[string]string)
+	if req.Token == "" {
+		errs["token"] = "Token is required"
+	}
+	if req.NewPassword == "" {
+		errs["new_password"] = "New password is required"
+	} else if len(req.NewPassword) < 8 {
+		errs["new_password"] = "New password must be at least 8 characters"
+	}
+	if len(errs) > 0 {
+		response.ValidationError(w, errs)
+		return
+	}
+
+	if err := h.authService.ResetPassword(req.Token, req.NewPassword); err != nil {
+		response.Error(w, http.StatusBadRequest, "RESET_FAILED", err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "Password reset successfully. You can now sign in.",
+	})
+}
+
 // ChangePassword handles POST /api/auth/change-password (requires auth).
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())

@@ -18,6 +18,18 @@ type OrderStats struct {
 	ShippedCount int64   `json:"shipped_count"`
 }
 
+// SellerStats is the authoritative per-seller dashboard figure set. All counts
+// and sums are computed from live DB rows — never derived from product-level
+// caches that may drift with price changes.
+type SellerStats struct {
+	TotalProducts  int64   `json:"total_products"`
+	TotalOrders    int64   `json:"total_orders"`     // distinct orders containing this seller's items
+	PendingOrders  int64   `json:"pending_orders"`   // pending / confirmed / processing
+	UnitsSold      int64   `json:"units_sold"`       // excluding cancelled items
+	TotalRevenue   float64 `json:"total_revenue"`    // SUM(price * quantity) for non-cancelled items
+	AverageRating  float64 `json:"average_rating"`   // avg of product avg_rating, rated products only
+}
+
 // OrderRepository handles all database operations for orders and order items.
 type OrderRepository struct {
 	db *gorm.DB
@@ -189,6 +201,62 @@ func (r *OrderRepository) GetStats() (*OrderStats, error) {
 
 	if err := r.db.Model(&models.Order{}).Where("status = ?", "shipped").Count(&stats.ShippedCount).Error; err != nil {
 		return nil, fmt.Errorf("order_repo: failed to get shipped count: %w", err)
+	}
+
+	return &stats, nil
+}
+
+// GetSellerStats aggregates live per-seller figures directly from order_items
+// and products. Uses historical order_items.price (not product.price) so
+// price changes don't corrupt past revenue.
+func (r *OrderRepository) GetSellerStats(sellerID uuid.UUID) (*SellerStats, error) {
+	var stats SellerStats
+
+	if err := r.db.Model(&models.Product{}).
+		Where("seller_id = ?", sellerID).
+		Count(&stats.TotalProducts).Error; err != nil {
+		return nil, fmt.Errorf("order_repo: seller product count: %w", err)
+	}
+
+	// Distinct orders containing this seller's items (any status).
+	if err := r.db.Model(&models.OrderItem{}).
+		Where("seller_id = ?", sellerID).
+		Distinct("order_id").
+		Count(&stats.TotalOrders).Error; err != nil {
+		return nil, fmt.Errorf("order_repo: seller total orders: %w", err)
+	}
+
+	// Orders currently in flight (seller has work to do).
+	if err := r.db.Table("order_items AS oi").
+		Joins("JOIN orders o ON o.id = oi.order_id").
+		Where("oi.seller_id = ? AND o.status IN ?", sellerID,
+			[]string{"pending", "confirmed", "processing"}).
+		Distinct("oi.order_id").
+		Count(&stats.PendingOrders).Error; err != nil {
+		return nil, fmt.Errorf("order_repo: seller pending orders: %w", err)
+	}
+
+	// Units sold + revenue, excluding items tied to cancelled orders.
+	var agg struct {
+		Units   int64
+		Revenue float64
+	}
+	if err := r.db.Table("order_items AS oi").
+		Joins("JOIN orders o ON o.id = oi.order_id").
+		Where("oi.seller_id = ? AND o.status <> ?", sellerID, "cancelled").
+		Select("COALESCE(SUM(oi.quantity), 0) AS units, COALESCE(SUM(oi.price * oi.quantity), 0) AS revenue").
+		Row().Scan(&agg.Units, &agg.Revenue); err != nil {
+		return nil, fmt.Errorf("order_repo: seller revenue: %w", err)
+	}
+	stats.UnitsSold = agg.Units
+	stats.TotalRevenue = agg.Revenue
+
+	// Average rating across this seller's rated products only.
+	if err := r.db.Model(&models.Product{}).
+		Where("seller_id = ? AND avg_rating > 0", sellerID).
+		Select("COALESCE(AVG(avg_rating), 0)").
+		Row().Scan(&stats.AverageRating); err != nil {
+		return nil, fmt.Errorf("order_repo: seller avg rating: %w", err)
 	}
 
 	return &stats, nil

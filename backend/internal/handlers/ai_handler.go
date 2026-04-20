@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/artshop/backend/internal/middleware"
@@ -10,6 +11,18 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// respondAIError maps AI service errors to the right HTTP status: 503 when
+// AI is disabled (no key configured) so the frontend can hide features
+// gracefully, 500 for actual provider failures.
+func respondAIError(w http.ResponseWriter, err error, action string) {
+	if errors.Is(err, services.ErrAIDisabled) {
+		response.Error(w, http.StatusServiceUnavailable, "AI_DISABLED",
+			"AI features are not configured on this server.")
+		return
+	}
+	response.Error(w, http.StatusInternalServerError, "AI_ERROR", "Failed to "+action+": "+err.Error())
+}
 
 // AIHandler handles HTTP requests for AI-powered endpoints.
 type AIHandler struct {
@@ -47,7 +60,7 @@ func (h *AIHandler) GenerateDescription(w http.ResponseWriter, r *http.Request) 
 
 	description, err := h.aiService.GenerateProductDescription(req.Title, req.Medium, req.Dimensions, req.Tags)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "AI_ERROR", "Failed to generate description: "+err.Error())
+		respondAIError(w, err, "generate description")
 		return
 	}
 
@@ -76,7 +89,7 @@ func (h *AIHandler) GenerateTags(w http.ResponseWriter, r *http.Request) {
 
 	tags, err := h.aiService.GenerateProductTags(req.Title, req.Description)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "AI_ERROR", "Failed to generate tags: "+err.Error())
+		respondAIError(w, err, "generate tags")
 		return
 	}
 

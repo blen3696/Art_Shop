@@ -1,0 +1,74 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Apply via: Render dashboard -> "New" -> "Blueprint" -> point at this repo.
+# Secrets (sync: false) are set in the Render dashboard, not in this file.
+
+services:
+  - type: web
+    name: artshop-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      # --- Server ---
+      - key: ENV
+        value: production
+      - key: PORT
+        value: 10000           # Render's convention; matches docker-prod target
+      - key: ALLOWED_ORIGINS
+        sync: false            # set in dashboard (your frontend URL)
+
+      # --- Database (Supabase) ---
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_MAX_OPEN_CONNS
+        value: 25
+      - key: DB_MAX_IDLE_CONNS
+        value: 10
+
+      # --- Auth ---
+      - key: JWT_SECRET
+        generateValue: true    # Render generates a strong random value once
+      - key: JWT_EXPIRY_HOURS
+        value: 24
+      - key: JWT_REFRESH_EXPIRY_HOURS
+        value: 168
+
+      # --- Supabase ---
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: artshop-images
+
+      # --- AI (Google Gemini, free tier) ---
+      - key: GEMINI_API_KEY
+        sync: false            # optional — leave blank to disable AI generators
+      - key: AI_MODEL
+        value: gemini-2.0-flash
+
+      # --- Email (Brevo) ---
+      - key: BREVO_API_KEY
+        sync: false            # paste in Render dashboard, never commit
+      - key: EMAIL_FROM_NAME
+        value: ArtShop
+      - key: EMAIL_FROM_ADDRESS
+        sync: false            # must match a verified sender in Brevo
+
+      # Public URL of the frontend (where password-reset links land).
+      # Set this to the production frontend URL (e.g. https://artshop.vercel.app).
+      - key: APP_URL
+        sync: false
+
+      # --- Rate limiting ---
+      - key: RATE_LIMIT_RPS
+        value: 10
+      - key: RATE_LIMIT_BURST
+        value: 30

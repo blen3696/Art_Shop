@@ -16,11 +16,57 @@ import (
 // ProductHandler handles HTTP requests for product endpoints.
 type ProductHandler struct {
 	productService *services.ProductService
+	productAI      *services.ProductAIService
 }
 
 // NewProductHandler creates a new ProductHandler instance.
-func NewProductHandler(productService *services.ProductService) *ProductHandler {
-	return &ProductHandler{productService: productService}
+func NewProductHandler(productService *services.ProductService, productAI *services.ProductAIService) *ProductHandler {
+	return &ProductHandler{
+		productService: productService,
+		productAI:      productAI,
+	}
+}
+
+// Similar handles GET /api/products/:id/similar?limit=4.
+func (h *ProductHandler) Similar(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_ID", "Invalid product ID")
+		return
+	}
+
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 {
+		limit = 4
+	}
+
+	products, err := h.productAI.Similar(id, limit)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "SIMILAR_FAILED", err.Error())
+		return
+	}
+	response.JSON(w, http.StatusOK, products)
+}
+
+// ReviewSummary handles GET /api/products/:id/review-summary.
+// Returns null data when there are no reviews yet. 503 when AI is disabled
+// AND there's no cached summary, so the UI can hide the section gracefully.
+func (h *ProductHandler) ReviewSummary(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_ID", "Invalid product ID")
+		return
+	}
+
+	summary, err := h.productAI.ReviewSummary(id)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "SUMMARY_FAILED", err.Error())
+		return
+	}
+	// summary == nil means no reviews (or no summary available) — surface that explicitly.
+	response.JSON(w, http.StatusOK, summary)
 }
 
 // List handles GET /api/products with query parameter filters.

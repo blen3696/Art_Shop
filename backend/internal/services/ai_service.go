@@ -3,9 +3,11 @@ package services
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -15,8 +17,20 @@ import (
 	"gorm.io/gorm"
 )
 
-// AIService handles interactions with the Anthropic Claude API for content generation
-// and product recommendations.
+// ErrAIDisabled is returned when GEMINI_API_KEY is not configured. Handlers
+// should translate this into HTTP 503 Service Unavailable so the UI can
+// gracefully hide AI-powered affordances without surfacing a 500.
+var ErrAIDisabled = errors.New("ai_service: AI is not configured")
+
+const defaultGeminiModel = "gemini-2.0-flash"
+const defaultGeminiEmbedModel = "text-embedding-004"
+const embeddingDimension = 768
+const geminiEndpointTemplate = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
+const geminiEmbedEndpointTemplate = "https://generativelanguage.googleapis.com/v1beta/models/%s:embedContent"
+
+// AIService handles AI-powered content generation (via Google's Gemini API)
+// and product recommendations (pure SQL collaborative filtering — works
+// regardless of whether an AI key is configured).
 type AIService struct {
 	cfg        *config.Config
 	httpClient *http.Client
@@ -32,85 +46,80 @@ func NewAIService(cfg *config.Config) *AIService {
 	}
 }
 
-// claudeRequest represents the request body for the Anthropic Messages API.
-type claudeRequest struct {
-	Model     string           `json:"model"`
-	MaxTokens int              `json:"max_tokens"`
-	Messages  []claudeMessage  `json:"messages"`
+// IsEnabled reports whether generative-AI features are available.
+// Recommendations don't require this (they're SQL-based).
+func (s *AIService) IsEnabled() bool {
+	return s.cfg.GeminiAPIKey != ""
 }
 
-// claudeMessage represents a single message in the Claude conversation.
-type claudeMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
+// --- Gemini REST wire types -------------------------------------------------
 
-// claudeResponse represents the response body from the Anthropic Messages API.
-type claudeResponse struct {
-	ID      string          `json:"id"`
-	Type    string          `json:"type"`
-	Role    string          `json:"role"`
-	Content []claudeContent `json:"content"`
-	Model   string          `json:"model"`
-	Usage   claudeUsage     `json:"usage"`
-}
-
-// claudeContent represents a content block in the Claude response.
-type claudeContent struct {
-	Type string `json:"type"`
+type geminiPart struct {
 	Text string `json:"text"`
 }
 
-// claudeUsage tracks token usage for the Claude API call.
-type claudeUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+type geminiContent struct {
+	Parts []geminiPart `json:"parts"`
+	Role  string       `json:"role,omitempty"`
 }
 
-// claudeErrorResponse represents an error from the Claude API.
-type claudeErrorResponse struct {
-	Type  string `json:"type"`
-	Error struct {
-		Type    string `json:"type"`
+type geminiGenerationConfig struct {
+	MaxOutputTokens int     `json:"maxOutputTokens,omitempty"`
+	Temperature     float64 `json:"temperature,omitempty"`
+}
+
+type geminiRequest struct {
+	Contents         []geminiContent        `json:"contents"`
+	GenerationConfig geminiGenerationConfig `json:"generationConfig"`
+}
+
+type geminiResponse struct {
+	Candidates []struct {
+		Content      geminiContent `json:"content"`
+		FinishReason string        `json:"finishReason"`
+	} `json:"candidates"`
+	Error *struct {
+		Code    int    `json:"code"`
 		Message string `json:"message"`
-	} `json:"error"`
+		Status  string `json:"status"`
+	} `json:"error,omitempty"`
 }
 
-// callClaude sends a request to the Anthropic Messages API and returns the text response.
-func (s *AIService) callClaude(prompt string, maxTokens int) (string, error) {
-	if s.cfg.AnthropicAPIKey == "" {
-		return "", fmt.Errorf("ai_service: Anthropic API key is not configured")
+// callGemini sends a prompt to Google's Gemini API and returns the text response.
+// Returns ErrAIDisabled (wrapped) when no API key is configured.
+func (s *AIService) callGemini(prompt string, maxTokens int) (string, error) {
+	if !s.IsEnabled() {
+		return "", ErrAIDisabled
 	}
 
 	model := s.cfg.AIModel
 	if model == "" {
-		model = "claude-sonnet-4-20250514"
+		model = defaultGeminiModel
 	}
 
-	reqBody := claudeRequest{
-		Model:     model,
-		MaxTokens: maxTokens,
-		Messages: []claudeMessage{
-			{
-				Role:    "user",
-				Content: prompt,
-			},
+	reqBody := geminiRequest{
+		Contents: []geminiContent{{
+			Parts: []geminiPart{{Text: prompt}},
+		}},
+		GenerationConfig: geminiGenerationConfig{
+			MaxOutputTokens: maxTokens,
+			Temperature:     0.7,
 		},
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("ai_service: failed to marshal request: %w", err)
+		return "", fmt.Errorf("ai_service: marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(jsonBody))
+	endpoint := fmt.Sprintf(geminiEndpointTemplate, url.PathEscape(model)) +
+		"?key=" + url.QueryEscape(s.cfg.GeminiAPIKey)
+
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return "", fmt.Errorf("ai_service: failed to create request: %w", err)
+		return "", fmt.Errorf("ai_service: build request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", s.cfg.AnthropicAPIKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -120,38 +129,144 @@ func (s *AIService) callClaude(prompt string, maxTokens int) (string, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("ai_service: failed to read response: %w", err)
+		return "", fmt.Errorf("ai_service: read response: %w", err)
 	}
+
+	var parsed geminiResponse
+	_ = json.Unmarshal(body, &parsed)
 
 	if resp.StatusCode != http.StatusOK {
-		var errResp claudeErrorResponse
-		if json.Unmarshal(body, &errResp) == nil && errResp.Error.Message != "" {
-			return "", fmt.Errorf("ai_service: Claude API error (%d): %s", resp.StatusCode, errResp.Error.Message)
+		if parsed.Error != nil && parsed.Error.Message != "" {
+			return "", fmt.Errorf("ai_service: Gemini API error (%d): %s", resp.StatusCode, parsed.Error.Message)
 		}
-		return "", fmt.Errorf("ai_service: Claude API returned status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("ai_service: Gemini API returned status %d", resp.StatusCode)
 	}
 
-	var claudeResp claudeResponse
-	if err := json.Unmarshal(body, &claudeResp); err != nil {
-		return "", fmt.Errorf("ai_service: failed to parse response: %w", err)
+	if len(parsed.Candidates) == 0 || len(parsed.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("ai_service: empty response from Gemini API")
 	}
 
-	if len(claudeResp.Content) == 0 {
-		return "", fmt.Errorf("ai_service: empty response from Claude API")
-	}
-
-	// Concatenate all text content blocks.
 	var result strings.Builder
-	for _, block := range claudeResp.Content {
-		if block.Type == "text" {
-			result.WriteString(block.Text)
-		}
+	for _, p := range parsed.Candidates[0].Content.Parts {
+		result.WriteString(p.Text)
 	}
-
 	return result.String(), nil
 }
 
-// GenerateProductDescription uses Claude to generate an engaging art product description.
+// --- Embeddings -------------------------------------------------------------
+
+type geminiEmbedRequest struct {
+	Model   string        `json:"model"`
+	Content geminiContent `json:"content"`
+}
+
+type geminiEmbedResponse struct {
+	Embedding struct {
+		Values []float32 `json:"values"`
+	} `json:"embedding"`
+	Error *struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
+}
+
+// Embed returns a 768-dimension vector for the given text using Gemini's
+// text-embedding-004 model. Returns ErrAIDisabled if no key is configured.
+func (s *AIService) Embed(text string) ([]float32, error) {
+	if !s.IsEnabled() {
+		return nil, ErrAIDisabled
+	}
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return nil, fmt.Errorf("ai_service: cannot embed empty text")
+	}
+
+	reqBody := geminiEmbedRequest{
+		Model: "models/" + defaultGeminiEmbedModel,
+		Content: geminiContent{
+			Parts: []geminiPart{{Text: trimmed}},
+		},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("ai_service: marshal embed request: %w", err)
+	}
+
+	endpoint := fmt.Sprintf(geminiEmbedEndpointTemplate, url.PathEscape(defaultGeminiEmbedModel)) +
+		"?key=" + url.QueryEscape(s.cfg.GeminiAPIKey)
+
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("ai_service: build embed request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ai_service: embed request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("ai_service: read embed response: %w", err)
+	}
+
+	var parsed geminiEmbedResponse
+	_ = json.Unmarshal(body, &parsed)
+
+	if resp.StatusCode != http.StatusOK {
+		if parsed.Error != nil && parsed.Error.Message != "" {
+			return nil, fmt.Errorf("ai_service: Gemini embed error (%d): %s", resp.StatusCode, parsed.Error.Message)
+		}
+		return nil, fmt.Errorf("ai_service: Gemini embed returned status %d", resp.StatusCode)
+	}
+
+	if len(parsed.Embedding.Values) != embeddingDimension {
+		return nil, fmt.Errorf("ai_service: unexpected embedding dimension: got %d, want %d",
+			len(parsed.Embedding.Values), embeddingDimension)
+	}
+
+	return parsed.Embedding.Values, nil
+}
+
+// FormatVector formats a float slice as a pgvector literal: "[0.1,0.2,...]".
+// Use this when building parameters for ::vector casts in raw SQL.
+func FormatVector(v []float32) string {
+	if len(v) == 0 {
+		return "[]"
+	}
+	var b strings.Builder
+	b.Grow(len(v) * 10)
+	b.WriteByte('[')
+	for i, x := range v {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%g", x)
+	}
+	b.WriteByte(']')
+	return b.String()
+}
+
+// BuildProductEmbeddingText assembles the text that represents a product for
+// embedding. Exposed so other services can detect when re-embedding is needed.
+func BuildProductEmbeddingText(title, description, medium string, tags []string) string {
+	parts := []string{title}
+	if description != "" {
+		parts = append(parts, description)
+	}
+	if medium != "" {
+		parts = append(parts, "Medium: "+medium)
+	}
+	if len(tags) > 0 {
+		parts = append(parts, "Tags: "+strings.Join(tags, ", "))
+	}
+	return strings.Join(parts, "\n")
+}
+
+// GenerateProductDescription uses Gemini to generate an engaging art product description.
 func (s *AIService) GenerateProductDescription(title, medium, dimensions string, tags []string) (string, error) {
 	tagsStr := "none"
 	if len(tags) > 0 {
@@ -165,7 +280,7 @@ Medium: %s
 Dimensions: %s
 Tags: %s`, title, medium, dimensions, tagsStr)
 
-	description, err := s.callClaude(prompt, 500)
+	description, err := s.callGemini(prompt, 500)
 	if err != nil {
 		return "", fmt.Errorf("ai_service: failed to generate description: %w", err)
 	}
@@ -180,7 +295,7 @@ func (s *AIService) GenerateProductTags(title, description string) ([]string, er
 Title: %s
 Description: %s`, title, description)
 
-	result, err := s.callClaude(prompt, 200)
+	result, err := s.callGemini(prompt, 200)
 	if err != nil {
 		return nil, fmt.Errorf("ai_service: failed to generate tags: %w", err)
 	}

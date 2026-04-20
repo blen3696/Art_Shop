@@ -202,3 +202,17 @@ func (h *OrderHandler) SellerOrders(w http.ResponseWriter, r *http.Request) {
 		TotalPages: totalPages,
 	})
 }
+
+// SellerStats handles GET /api/seller/stats (requires seller). Returns the
+// authoritative numbers for the seller dashboard — computed from live DB rows,
+// never derived from product-level caches that can drift with price changes.
+func (h *OrderHandler) SellerStats(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+
+	stats, err := h.orderService.GetSellerStats(userID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "STATS_FAILED", err.Error())
+		return
+	}
+	response.JSON(w, http.StatusOK, stats)
+}

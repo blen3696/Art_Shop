@@ -1,0 +1,26 @@
+# VCS
+.git/
+.gitignore
+
+# Local env / secrets — NEVER ship these into the image
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+bin/
+*.exe
+*.test
+*.out
+coverage.out
+coverage.html
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Tooling that doesn't belong in the image
+Makefile
+README.md

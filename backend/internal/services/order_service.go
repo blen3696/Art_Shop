@@ -1,7 +1,9 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"math"
 
 	"github.com/artshop/backend/internal/config"
@@ -40,6 +42,8 @@ type OrderService struct {
 	orderRepo   *repository.OrderRepository
 	cartRepo    *repository.CartRepository
 	productRepo *repository.ProductRepository
+	userRepo    *repository.UserRepository
+	email       *EmailService
 	cfg         *config.Config
 }
 
@@ -48,19 +52,36 @@ func NewOrderService(
 	orderRepo *repository.OrderRepository,
 	cartRepo *repository.CartRepository,
 	productRepo *repository.ProductRepository,
+	userRepo *repository.UserRepository,
+	email *EmailService,
 	cfg *config.Config,
 ) *OrderService {
 	return &OrderService{
 		orderRepo:   orderRepo,
 		cartRepo:    cartRepo,
 		productRepo: productRepo,
+		userRepo:    userRepo,
+		email:       email,
 		cfg:         cfg,
 	}
 }
 
+// Demo build: only Cash on Delivery is accepted. No payment gateway is wired
+// up yet, so any other method would let an order reach "confirmed" without a
+// real charge. Update this allowlist when a real PSP (Stripe, etc.) is added.
+var allowedPaymentMethods = map[string]bool{
+	"cod": true,
+}
+
 // CreateFromCart creates an order from the user's current cart items.
 func (s *OrderService) CreateFromCart(buyerID uuid.UUID, req CreateOrderRequest) (*models.Order, error) {
-	// Fetch the user's cart.
+	if req.PaymentMethod == "" {
+		req.PaymentMethod = "cod"
+	}
+	if !allowedPaymentMethods[req.PaymentMethod] {
+		return nil, fmt.Errorf("payment method '%s' is not supported (demo mode: cash on delivery only)", req.PaymentMethod)
+	}
+
 	cartItems, err := s.cartRepo.GetByUser(buyerID)
 	if err != nil {
 		return nil, fmt.Errorf("order_service: failed to get cart: %w", err)
@@ -161,12 +182,62 @@ func (s *OrderService) CreateFromCart(buyerID uuid.UUID, req CreateOrderRequest)
 
 	// Clear the cart after successful order creation.
 	if err := s.cartRepo.Clear(buyerID); err != nil {
-		// Log but do not fail the order.
-		fmt.Printf("order_service: warning: failed to clear cart for user %s: %v\n", buyerID, err)
+		slog.Warn("order_service: failed to clear cart", "user_id", buyerID, "error", err)
 	}
 
 	// Fetch the complete order with preloaded associations.
-	return s.orderRepo.FindByID(order.ID)
+	fullOrder, err := s.orderRepo.FindByID(order.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fire-and-forget emails. Never fail the order on email errors.
+	go s.sendOrderConfirmation(buyerID, fullOrder)
+	go s.notifySellersOfNewOrder(fullOrder)
+
+	return fullOrder, nil
+}
+
+// sendOrderConfirmation sends the buyer a confirmation email for a new order.
+// Runs in a goroutine; errors are logged, never returned.
+func (s *OrderService) sendOrderConfirmation(buyerID uuid.UUID, order *models.Order) {
+	if s.email == nil {
+		return
+	}
+	buyer, err := s.userRepo.FindByID(buyerID)
+	if err != nil || buyer == nil {
+		slog.Warn("order_service: cannot resolve buyer for confirmation email", "user_id", buyerID, "error", err)
+		return
+	}
+	if err := s.email.SendOrderConfirmation(context.Background(), buyer.Email, buyer.FullName, order); err != nil {
+		slog.Warn("order_service: order confirmation email failed", "order", order.OrderNumber, "error", err)
+	}
+}
+
+// notifySellersOfNewOrder sends each seller in an order their own breakdown of
+// the items they need to fulfill. Runs in a goroutine; errors are logged.
+func (s *OrderService) notifySellersOfNewOrder(order *models.Order) {
+	if s.email == nil {
+		return
+	}
+	bySeller := make(map[uuid.UUID][]models.OrderItem)
+	for _, item := range order.Items {
+		if item.SellerID == nil {
+			continue
+		}
+		bySeller[*item.SellerID] = append(bySeller[*item.SellerID], item)
+	}
+	for sellerID, items := range bySeller {
+		seller, err := s.userRepo.FindByID(sellerID)
+		if err != nil || seller == nil {
+			slog.Warn("order_service: seller lookup failed", "seller_id", sellerID, "error", err)
+			continue
+		}
+		if err := s.email.SendSellerNewOrder(context.Background(), seller.Email, seller.FullName, order, items); err != nil {
+			slog.Warn("order_service: seller new-order email failed",
+				"seller_id", sellerID, "order", order.OrderNumber, "error", err)
+		}
+	}
 }
 
 // GetByID retrieves an order by its ID.
@@ -238,8 +309,8 @@ func (s *OrderService) UpdateStatus(orderID uuid.UUID, status string, userID uui
 	}
 
 	valid := false
-	for _, s := range allowed {
-		if s == status {
+	for _, allowedStatus := range allowed {
+		if allowedStatus == status {
 			valid = true
 			break
 		}
@@ -248,10 +319,39 @@ func (s *OrderService) UpdateStatus(orderID uuid.UUID, status string, userID uui
 		return fmt.Errorf("cannot transition from '%s' to '%s'", order.Status, status)
 	}
 
-	return s.orderRepo.UpdateStatus(orderID, status)
+	if err := s.orderRepo.UpdateStatus(orderID, status); err != nil {
+		return err
+	}
+
+	// Fetch the updated order and notify the buyer.
+	updated, err := s.orderRepo.FindByID(orderID)
+	if err == nil && updated != nil {
+		go s.sendOrderStatusUpdate(updated)
+	}
+
+	return nil
+}
+
+// sendOrderStatusUpdate emails the buyer when their order's status changes.
+func (s *OrderService) sendOrderStatusUpdate(order *models.Order) {
+	if s.email == nil {
+		return
+	}
+	buyer, err := s.userRepo.FindByID(order.BuyerID)
+	if err != nil || buyer == nil {
+		return
+	}
+	if err := s.email.SendOrderStatusUpdate(context.Background(), buyer.Email, buyer.FullName, order); err != nil {
+		slog.Warn("order_service: status-update email failed", "order", order.OrderNumber, "error", err)
+	}
 }
 
 // GetAdminStats returns aggregate order statistics for the admin dashboard.
 func (s *OrderService) GetAdminStats() (*repository.OrderStats, error) {
 	return s.orderRepo.GetStats()
+}
+
+// GetSellerStats returns the authoritative stats panel for a seller dashboard.
+func (s *OrderService) GetSellerStats(sellerID uuid.UUID) (*repository.SellerStats, error) {
+	return s.orderRepo.GetSellerStats(sellerID)
 }

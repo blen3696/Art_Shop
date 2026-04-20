@@ -48,13 +48,20 @@ type UpdateProductRequest struct {
 // ProductService handles business logic for products.
 type ProductService struct {
 	productRepo *repository.ProductRepository
+	productAI   *ProductAIService
 	cfg         *config.Config
 }
 
-// NewProductService creates a new ProductService instance.
-func NewProductService(productRepo *repository.ProductRepository, cfg *config.Config) *ProductService {
+// NewProductService creates a new ProductService instance. productAI may be nil
+// when AI is not configured — embedding calls no-op in that case.
+func NewProductService(
+	productRepo *repository.ProductRepository,
+	productAI *ProductAIService,
+	cfg *config.Config,
+) *ProductService {
 	return &ProductService{
 		productRepo: productRepo,
+		productAI:   productAI,
 		cfg:         cfg,
 	}
 }
@@ -105,6 +112,12 @@ func (s *ProductService) Create(sellerID uuid.UUID, req CreateProductRequest) (*
 
 	if err := s.productRepo.Create(product); err != nil {
 		return nil, fmt.Errorf("product_service: failed to create product: %w", err)
+	}
+
+	// Generate the semantic embedding asynchronously so the response isn't
+	// blocked on an external API call.
+	if s.productAI != nil {
+		s.productAI.EmbedProductAsync(product)
 	}
 
 	// Re-fetch to get preloaded associations.
@@ -178,6 +191,11 @@ func (s *ProductService) Update(sellerID uuid.UUID, productID uuid.UUID, req Upd
 		return nil, fmt.Errorf("product_service: failed to update product: %w", err)
 	}
 
+	// Re-embed on update in case title/description/tags/medium changed.
+	if s.productAI != nil {
+		s.productAI.EmbedProductAsync(product)
+	}
+
 	return s.productRepo.FindByID(product.ID)
 }
 
@@ -221,8 +239,17 @@ func (s *ProductService) List(params repository.ProductQueryParams) ([]models.Pr
 	return s.productRepo.List(params)
 }
 
-// Search performs a full-text search on products.
+// Search returns products matching a query. Uses semantic (vector) search when
+// AI is configured, otherwise falls back to PostgreSQL full-text search.
 func (s *ProductService) Search(query string, page, perPage int) ([]models.Product, int64, error) {
+	if s.productAI != nil {
+		return s.productAI.SearchWithFallback(query, page, perPage)
+	}
+	return s.searchKeyword(query, page, perPage)
+}
+
+// searchKeyword is the original full-text search path.
+func (s *ProductService) searchKeyword(query string, page, perPage int) ([]models.Product, int64, error) {
 	if page < 1 {
 		page = 1
 	}

@@ -32,9 +32,21 @@ type Config struct {
 	SupabaseServiceKey string
 	StorageBucket      string
 
-	// AI / Anthropic
-	AnthropicAPIKey string
-	AIModel         string
+	// AI (Google Gemini). Empty GeminiAPIKey disables generative features —
+	// the /api/ai/recommendations endpoint still works (SQL-based) but the
+	// description/tags generators return 503.
+	GeminiAPIKey string
+	AIModel      string
+
+	// Email (Brevo). EmailFromAddress must be a sender verified in Brevo
+	// (Senders & IP → Senders), or a verified domain.
+	BrevoAPIKey      string
+	EmailFromName    string
+	EmailFromAddress string
+
+	// AppURL is the public frontend URL — used to build links in transactional
+	// emails (password reset, etc.). No trailing slash.
+	AppURL string
 
 	// Rate Limiting
 	RateLimitRPS   float64
@@ -67,8 +79,14 @@ func Load() (*Config, error) {
 		SupabaseServiceKey: getEnv("SUPABASE_SERVICE_KEY", ""),
 		StorageBucket:      getEnv("STORAGE_BUCKET", "artshop-images"),
 
-		AnthropicAPIKey: getEnv("ANTHROPIC_API_KEY", ""),
-		AIModel:         getEnv("AI_MODEL", "claude-sonnet-4-20250514"),
+		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
+		AIModel:      getEnv("AI_MODEL", "gemini-2.0-flash"),
+
+		BrevoAPIKey:      getEnv("BREVO_API_KEY", ""),
+		EmailFromName:    getEnv("EMAIL_FROM_NAME", "ArtShop"),
+		EmailFromAddress: getEnv("EMAIL_FROM_ADDRESS", ""),
+
+		AppURL: getEnv("APP_URL", "http://localhost:5173"),
 
 		RateLimitRPS:   getEnvFloat("RATE_LIMIT_RPS", 10),
 		RateLimitBurst: getEnvInt("RATE_LIMIT_BURST", 30),

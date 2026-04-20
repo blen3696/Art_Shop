@@ -22,16 +22,6 @@
 
 ## Screenshots
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center" width="100%">
-        <p><em>Add screenshots to <code>frontend/src/assets/screenshots/</code> and update this section.</em></p>
-        <p>Recommended screenshots: Home, Products, Product Detail, Cart, Checkout, Seller Dashboard, Admin Dashboard</p>
-      </td>
-    </tr>
-  </table>
-</div>
 
 
 <div align="center">

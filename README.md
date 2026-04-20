@@ -22,12 +22,6 @@
 
 ## Screenshots
 
-<!-- 
-  Add your screenshots to the frontend/src/assets/screenshots/ folder.
-  Name them: 01-home.png, 02-products.png, 03-product-detail.png, etc.
-  Then uncomment and update the images below.
--->
-
 <div align="center">
   <table>
     <tr>

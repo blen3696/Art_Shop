@@ -66,11 +66,13 @@ func NewOrderService(
 	}
 }
 
-// Demo build: only Cash on Delivery is accepted. No payment gateway is wired
-// up yet, so any other method would let an order reach "confirmed" without a
-// real charge. Update this allowlist when a real PSP (Stripe, etc.) is added.
+// Accepted payment methods. "cod" is paid-on-delivery (no gateway). "chapa"
+// goes through a hosted checkout flow — the order is created with
+// payment_status='pending' and only flips to 'paid' after the webhook/verify
+// confirms the transaction with Chapa.
 var allowedPaymentMethods = map[string]bool{
-	"cod": true,
+	"cod":   true,
+	"chapa": true,
 }
 
 // CreateFromCart creates an order from the user's current cart items.

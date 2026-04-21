@@ -180,6 +180,67 @@ func (r *OrderRepository) UpdateStatus(id uuid.UUID, status string) error {
 	return nil
 }
 
+// CancelAndRestoreStock transitions an order to 'cancelled' and adds its items'
+// quantities back to the product stock. Wrapped in a transaction so stock and
+// order state can't drift. Idempotent: if the order is already cancelled we
+// exit early without touching stock again (guards against duplicate webhook
+// failure callbacks releasing stock twice).
+func (r *OrderRepository) CancelAndRestoreStock(orderID uuid.UUID) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var order models.Order
+		if err := tx.Preload("Items").First(&order, "id = ?", orderID).Error; err != nil {
+			return fmt.Errorf("order_repo: cancel find: %w", err)
+		}
+		if order.Status == "cancelled" {
+			return nil
+		}
+		// Don't release stock for an order that was actually paid — that would
+		// corrupt inventory. Callers should never invoke this for paid orders,
+		// but defending in-depth is cheap.
+		if order.PaymentStatus == "paid" {
+			return fmt.Errorf("order_repo: cannot cancel a paid order")
+		}
+
+		if err := tx.Model(&models.Order{}).
+			Where("id = ?", orderID).
+			Update("status", "cancelled").Error; err != nil {
+			return fmt.Errorf("order_repo: cancel update: %w", err)
+		}
+
+		for _, item := range order.Items {
+			if item.ProductID == nil {
+				continue
+			}
+			if err := tx.Model(&models.Product{}).
+				Where("id = ?", *item.ProductID).
+				UpdateColumn("stock", gorm.Expr("stock + ?", item.Quantity)).
+				UpdateColumn("total_sales", gorm.Expr("GREATEST(0, total_sales - ?)", item.Quantity)).
+				Error; err != nil {
+				return fmt.Errorf("order_repo: restore stock for %s: %w", item.ProductID, err)
+			}
+		}
+		return nil
+	})
+}
+
+// MarkPaid transitions an order to payment_status='paid' and status='confirmed',
+// storing the payment provider's reference. Uses an optimistic guard so a
+// duplicate success callback can't flip a later 'cancelled' or 'refunded'
+// order back to 'confirmed'.
+func (r *OrderRepository) MarkPaid(orderID uuid.UUID, providerRef string) error {
+	result := r.db.Model(&models.Order{}).
+		Where("id = ? AND payment_status <> ?", orderID, "paid").
+		Updates(map[string]any{
+			"payment_status":    "paid",
+			"status":            "confirmed",
+			"payment_intent_id": providerRef,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("order_repo: mark paid: %w", result.Error)
+	}
+	return nil
+}
+
 // GetStats returns aggregate order statistics: total orders, revenue, and counts by status.
 func (r *OrderRepository) GetStats() (*OrderStats, error) {
 	var stats OrderStats

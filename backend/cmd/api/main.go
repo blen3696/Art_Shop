@@ -43,15 +43,18 @@ func main() {
 	cartRepo := repository.NewCartRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 	resetTokenRepo := repository.NewPasswordResetTokenRepository(db)
+	paymentRepo := repository.NewPaymentRepository(db)
 
 	emailService := services.NewEmailService(cfg)
 	aiService := services.NewAIService(cfg)
 	productAIService := services.NewProductAIService(productRepo, reviewRepo, aiService, db)
+	chapaService := services.NewChapaService(cfg)
 
 	authService := services.NewAuthService(userRepo, resetTokenRepo, emailService, cfg)
 	productService := services.NewProductService(productRepo, productAIService, cfg)
 	orderService := services.NewOrderService(orderRepo, cartRepo, productRepo, userRepo, emailService, cfg)
 	adminService := services.NewAdminService(userRepo, productRepo, orderRepo, db)
+	paymentService := services.NewPaymentService(paymentRepo, orderRepo, userRepo, chapaService, cfg)
 
 	// Kick off embedding backfill in the background — embeds any product that
 	// doesn't yet have a vector, respecting Gemini's free-tier rate limits.
@@ -69,6 +72,7 @@ func main() {
 	aiHandler := handlers.NewAIHandler(aiService, db)
 	uploadHandler := handlers.NewUploadHandler(cfg)
 	notificationHandler := handlers.NewNotificationHandler(db)
+	paymentHandler := handlers.NewPaymentHandler(paymentService, chapaService)
 
 	r := chi.NewRouter()
 
@@ -104,6 +108,10 @@ func main() {
 	})
 
 	r.Route("/api", func(r chi.Router) {
+		// Chapa webhook — PUBLIC (no JWT). Auth is via HMAC signature check
+		// inside the handler. Must stay outside any auth middleware group.
+		r.Post("/payments/webhook", paymentHandler.Webhook)
+
 		// Auth.
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
@@ -178,6 +186,12 @@ func main() {
 				r.Get("/", orderHandler.List)
 				r.Get("/{id}", orderHandler.GetByID)
 				r.Put("/{id}/status", orderHandler.UpdateStatus)
+			})
+
+			// Payments (auth-required — webhook is mounted separately above).
+			r.Route("/payments", func(r chi.Router) {
+				r.Post("/initialize", paymentHandler.Initialize)
+				r.Get("/verify", paymentHandler.Verify)
 			})
 
 			// Notifications.

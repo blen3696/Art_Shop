@@ -51,6 +51,15 @@ type Config struct {
 	// Rate Limiting
 	RateLimitRPS   float64
 	RateLimitBurst int
+
+	// Chapa Payments. Empty ChapaSecretKey disables checkout — the
+	// /api/payments/* endpoints return 503 in that case so the rest of the
+	// app (browsing, cart) keeps working without a payment provider.
+	ChapaSecretKey       string
+	ChapaPublicKey       string
+	ChapaWebhookSecret   string
+	ChapaCallbackBaseURL string
+	ChapaCurrency        string
 }
 
 // Load reads configuration from the .env file (if present) and environment
@@ -90,6 +99,12 @@ func Load() (*Config, error) {
 
 		RateLimitRPS:   getEnvFloat("RATE_LIMIT_RPS", 10),
 		RateLimitBurst: getEnvInt("RATE_LIMIT_BURST", 30),
+
+		ChapaSecretKey:       getEnv("CHAPA_SECRET_KEY", ""),
+		ChapaPublicKey:       getEnv("CHAPA_PUBLIC_KEY", ""),
+		ChapaWebhookSecret:   getEnv("CHAPA_WEBHOOK_SECRET", ""),
+		ChapaCallbackBaseURL: getEnv("CHAPA_CALLBACK_BASE_URL", "http://localhost:8080"),
+		ChapaCurrency:        getEnv("CHAPA_CURRENCY", "ETB"),
 	}
 
 	if err := cfg.validate(); err != nil {

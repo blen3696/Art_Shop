@@ -1,4 +1,4 @@
-.PHONY: run dev build start prod-local test test-coverage clean tidy lint docker-build docker-run docker-prod migrate health
+.PHONY: run dev build start prod-local test test-coverage clean tidy lint docker-build docker-run docker-prod migrate-up migrate-down migrate-force migrate-create migrate-version seed health
 
 # Variables
 BINARY_NAME=artshop-api
@@ -68,8 +68,43 @@ health:
 	curl -fsS http://localhost:$(PORT)/health && echo
 
 # --- Database ---
+#
+# Schema migrations are also run automatically at server startup by the
+# internal/migrate package. These targets are for MANUAL control — useful for
+# rollbacks, creating new migration files, and checking version state.
+#
+# Requires the golang-migrate CLI for manual operations:
+#   scoop install migrate             (Windows)
+#   brew install golang-migrate        (macOS)
+#   apt install golang-migrate         (Debian/Ubuntu)
 
-migrate:
-	@echo "Running migrations..."
-	psql "$(DATABASE_URL)" -f migrations/001_initial_schema.sql
-	@echo "Migrations complete."
+MIGRATE_DIR=internal/migrate/schema
+
+# Apply all pending up-migrations. Equivalent to what the server does on boot.
+migrate-up:
+	migrate -path $(MIGRATE_DIR) -database "$(DATABASE_URL)" up
+
+# Roll back the MOST RECENT migration. Pass N=3 to roll back three.
+migrate-down:
+	migrate -path $(MIGRATE_DIR) -database "$(DATABASE_URL)" down $(if $(N),$(N),1)
+
+# Show current migration version + whether the DB is in a dirty state.
+migrate-version:
+	migrate -path $(MIGRATE_DIR) -database "$(DATABASE_URL)" version
+
+# Clear the dirty flag after fixing a failed migration manually. Pass V=<version>.
+# Example: make migrate-force V=3
+migrate-force:
+	migrate -path $(MIGRATE_DIR) -database "$(DATABASE_URL)" force $(V)
+
+# Create a new migration pair (up + down). Pass NAME=add_something.
+# Example: make migrate-create NAME=add_user_preferences
+migrate-create:
+	migrate create -ext sql -dir $(MIGRATE_DIR) -seq $(NAME)
+
+# Apply seed data files. One-shot for fresh databases; NOT idempotent.
+seed:
+	@echo "Applying seed data..."
+	psql "$(DATABASE_URL)" -f migrations/seeds/001_core_seed.sql
+	psql "$(DATABASE_URL)" -f migrations/seeds/002_extra_seed.sql
+	@echo "Seeds complete."

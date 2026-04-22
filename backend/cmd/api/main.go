@@ -14,6 +14,7 @@ import (
 	"github.com/artshop/backend/internal/database"
 	"github.com/artshop/backend/internal/handlers"
 	"github.com/artshop/backend/internal/middleware"
+	"github.com/artshop/backend/internal/migrate"
 	"github.com/artshop/backend/internal/repository"
 	"github.com/artshop/backend/internal/services"
 	"github.com/go-chi/chi/v5"
@@ -36,6 +37,13 @@ func main() {
 	}
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
+
+	// Run pending schema migrations on startup. Failing here is a hard stop —
+	// running with a stale schema would silently corrupt data.
+	if err := migrate.Up(db); err != nil {
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
+	}
 
 	userRepo := repository.NewUserRepository(db)
 	productRepo := repository.NewProductRepository(db)

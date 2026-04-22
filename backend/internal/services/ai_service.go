@@ -23,7 +23,10 @@ import (
 var ErrAIDisabled = errors.New("ai_service: AI is not configured")
 
 const defaultGeminiModel = "gemini-2.0-flash"
-const defaultGeminiEmbedModel = "text-embedding-004"
+// Google renamed text-embedding-004 → gemini-embedding-001. The new model
+// defaults to 3072 dims but supports 768/1536/3072 via outputDimensionality.
+// We keep 768 so existing vectors in the DB stay compatible.
+const defaultGeminiEmbedModel = "gemini-embedding-001"
 const embeddingDimension = 768
 const geminiEndpointTemplate = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
 const geminiEmbedEndpointTemplate = "https://generativelanguage.googleapis.com/v1beta/models/%s:embedContent"
@@ -156,8 +159,9 @@ func (s *AIService) callGemini(prompt string, maxTokens int) (string, error) {
 // --- Embeddings -------------------------------------------------------------
 
 type geminiEmbedRequest struct {
-	Model   string        `json:"model"`
-	Content geminiContent `json:"content"`
+	Model                string        `json:"model"`
+	Content              geminiContent `json:"content"`
+	OutputDimensionality int           `json:"outputDimensionality,omitempty"`
 }
 
 type geminiEmbedResponse struct {
@@ -171,7 +175,7 @@ type geminiEmbedResponse struct {
 }
 
 // Embed returns a 768-dimension vector for the given text using Gemini's
-// text-embedding-004 model. Returns ErrAIDisabled if no key is configured.
+// gemini-embedding-001 model. Returns ErrAIDisabled if no key is configured.
 func (s *AIService) Embed(text string) ([]float32, error) {
 	if !s.IsEnabled() {
 		return nil, ErrAIDisabled
@@ -186,6 +190,7 @@ func (s *AIService) Embed(text string) ([]float32, error) {
 		Content: geminiContent{
 			Parts: []geminiPart{{Text: trimmed}},
 		},
+		OutputDimensionality: embeddingDimension,
 	}
 
 	jsonBody, err := json.Marshal(reqBody)

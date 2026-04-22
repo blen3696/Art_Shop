@@ -1,0 +1,14 @@
+-- Drop in reverse dependency order. Child tables first, then parents.
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS wishlist CASCADE;
+DROP TABLE IF EXISTS cart_items CASCADE;
+DROP TABLE IF EXISTS reviews CASCADE;
+DROP TABLE IF EXISTS order_items CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS seller_profiles CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+DROP EXTENSION IF EXISTS "pg_trgm";
+DROP EXTENSION IF EXISTS "pgcrypto";
